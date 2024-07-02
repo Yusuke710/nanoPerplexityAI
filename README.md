@@ -1,7 +1,7 @@
 # nanoPerplexityAI
 ![meme](/assets/meme.png)
 
-The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of code**.
+The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of python code**.
 Please check out [this video(to be uploaded soon)]() for more explanations!
 
 ## Architecture
@@ -15,7 +15,7 @@ Please check out [this video(to be uploaded soon)]() for more explanations!
 
 ## Install
 ```
-pip install pip install requests beautifulsoup4 openai markdown googlesearch-python
+pip install requests beautifulsoup4 openai markdown googlesearch-python
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ export OPENAI_API_KEY=<Your OpenAI API KEY>
 python nanoPerplexityAI.py
 ```
 
-The script will prompt you the type your question, then it will generate a response in `response.md`
+The script will prompt you to type your question, then it will generate a response in `response.md`
 
 ## View the LLM Responses:
 There are several ways to visualize the responses easily:
@@ -32,7 +32,7 @@ There are several ways to visualize the responses easily:
 - Open in [Markdown Playground](https://dotmd-editor.vercel.app/)
 - Push them to your github repo
 
-Check out [some responses](/example_outputs/) nanoPerplexityAI has already generated 
+Check out the [responses](/example_outputs/) nanoPerplexityAI has already generated 
 
 ![Response](/assets/example_response.png)
 

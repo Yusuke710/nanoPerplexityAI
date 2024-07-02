@@ -1,3 +1,4 @@
 env/
 venv/
 input.txt
+.DS_Store
