@@ -7,15 +7,15 @@ Please check out [this video(to be uploaded soon)]() for more explanations!
 ## Architecture
 
 1. Get the user query
-2. Search Google to find relevant webpage URLs
-3. Parse each webpage for text
-4. Build a prompt using `system prompt + user query + webpage text`
-5. Call the LLM API to generate response
-6. Save the LLM response into a markdown file to visualize it with citations
+2. Search Google to find relevant webpage URLs and fetch texts
+3. Use [rerank model(cross encoder)](https://www.sbert.net/examples/applications/retrieve_rerank/README.html) to find relevance scores for each search results
+4. Build a prompt using `system prompt + webpage context + user query`
+5. Call the LLM API to generate a response
+6. Format citations and save the LLM response into a markdown file to visualize it
 
 ## Install
 ```
-pip install requests beautifulsoup4 openai markdown googlesearch-python
+pip install googlesearch-python requests beautifulsoup4 sentence-transformers openai 
 ```
 
 ## Quick Start

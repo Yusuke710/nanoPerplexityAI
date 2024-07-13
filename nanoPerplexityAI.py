@@ -7,7 +7,6 @@ import requests
 from bs4 import BeautifulSoup
 from sentence_transformers import CrossEncoder
 from openai import OpenAI
-import markdown
 
 # -----------------------------------------------------------------------------
 # Default configuration
@@ -15,8 +14,8 @@ NUM_SEARCH = 20  # Number of links to parse from Google
 SEARCH_TIME_LIMIT = 3  # Max seconds to request website sources before skipping to the next URL
 MAX_CONTENT = 400  # Number of words to add to LLM context for each search result
 RERANK_TOP_K = 5 # Top k ranked search results going into context of LLM
-RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L-12-v2'  # Max tokens = 512
-LLM_MODEL = 'gpt-3.5-turbo'  # 'gpt-4o' 
+RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L-12-v2'  # Max tokens = 512 # https://www.sbert.net/docs/pretrained-models/ce-msmarco.html
+LLM_MODEL = 'gpt-4o' # 'gpt-3.5-turbo'
 OUTPUT_MD = 'response.md'
 # -----------------------------------------------------------------------------
 
@@ -88,14 +87,31 @@ def llm_openai(prompt, llm_model=LLM_MODEL):
     )
     return response.choices[0].message.content
 
-def save_markdown(query, response, search_dic, output_md=OUTPUT_MD):
-    """Save the query, response, and sources to a markdown file."""
+def renumber_citations(response):
+    """Renumber citations in the response to be sequential."""
+    citations = sorted(set(map(int, re.findall(r'\[(\d+)\]', response))))
+    citation_map = {old: new for new, old in enumerate(citations, 1)}
+    for old, new in citation_map.items():
+        response = re.sub(rf'\[{old}\]', f'[{new}]', response)
+    return response
+
+def generate_citation_links(response, search_dic):
+    """Generate citation links based on the renumbered response."""
     cited_numbers = set(map(int, re.findall(r'\[(\d+)\]', response)))
-    cited_links = [f"{i+1}. {url}" for i, (url, _) in enumerate(search_dic.items()) if (i + 1) in cited_numbers]
-    links_block = "\n".join(cited_links)
-    output = f"# Query:\n{query}\n\n# Response:\n{response}\n\n# Sources:\n{links_block}"
+    cited_links = [f"{new}. {url}" for new, (url, _) in enumerate(search_dic.items(), 1) if new in cited_numbers]
+    return "\n".join(cited_links)
+
+def save_markdown(query, response, search_dic, output_md=OUTPUT_MD):
+    """Renumber citations, then save the query, response, and sources to a markdown file."""
+    response = renumber_citations(response)
+    links_block = generate_citation_links(response, search_dic)
+    output_content = (
+        f"# Query:\n{query}\n\n"
+        f"# Response:\n{response}\n\n"
+        f"# Sources:\n{links_block}"
+    )
     with open(output_md, "w") as file:
-        file.write(output)
+        file.write(output_content)
 
 def main():
     """Main function to execute the search, rerank results, generate response, and save to markdown."""
