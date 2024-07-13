@@ -1,16 +1,20 @@
 import os
+from googlesearch import search
 import requests
 from bs4 import BeautifulSoup
+from sentence_transformers import CrossEncoder
 from openai import OpenAI
+import re
 import markdown
-from googlesearch import search
 
 # -----------------------------------------------------------------------------
 # default config
-max_links = 5 # number of links to parse from google
-max_content = 300 # number of words to add to LLM context for each search result
+num_search = 5 # number of links to parse from google
 search_time_limit = 3 # max seconds to request website sources until you skip to the next url
-model = 'gpt-4o' # 'gpt-3.5-turbo' 
+max_content = 400 # number of words to add to LLM context for each search result
+rerank_top_k = 3
+rerank_model = 'cross-encoder/ms-marco-MiniLM-L-12-v2' # max tokens = 512, batch size = 
+llm_model = 'gpt-3.5-turbo' #'gpt-4o'
 output_md = 'response.md' 
 # -----------------------------------------------------------------------------
 
@@ -26,9 +30,9 @@ def get_query():
     query = input("Enter your query: ")
     return query
     
-def google_parse_webpages(query, max_links):
+def google_parse_webpages(query, num_search=10):
     search_dic = {}
-    for url in search(query, num_results=max_links):
+    for url in search(query, num_results=num_search):
         try:
             print(f"Fetching link: {url}")
             response = requests.get(url, timeout=search_time_limit)
@@ -41,6 +45,14 @@ def google_parse_webpages(query, max_links):
             print(f"Error fetching {url}: {e}")
             continue  # Skip the failed link
     return search_dic
+
+def rerank_search_results(query, search_dic, rerank_model, rerank_top_k=5):
+    model = CrossEncoder(rerank_model)
+    query_context_pairs = [(query, content) for content in search_dic.values()]
+    scores = model.predict(query_context_pairs)
+    
+    top_results = sorted(zip(search_dic.keys(), search_dic.values(), scores), key=lambda x: x[2], reverse=True)[:rerank_top_k]
+    return {link: content for link, content, _ in top_results}
 
 def build_prompt(query, search_dic):
     # search_dic contains a dictionary with links as keys and contents as values
@@ -63,31 +75,34 @@ def build_prompt(query, search_dic):
     """
     return [{"role": "system", "content": system_message}, {"role": "user", "content": query}]
 
-def llm_openAI(prompt, model):
+def llm_openAI(prompt, llm_model):
     response = client.chat.completions.create(
-        model=model,
+        model=llm_model,
         messages=prompt
     )
     return response.choices[0].message.content
 
-def save_markdown(query, response, search_dic, output_md=output_md):
-    # Format sources as follow
-    # Sources:
-    # 1. https://www.exampleA.com  
-    # 2. https://www.exampleB.com 
-    links_list = [f"{i+1}. {url}" for i, (url, _) in enumerate(search_dic.items())]
-    links_block = "\n".join(links_list)
+def save_markdown(query, response, search_dic, output_md='response.md'):
+    # Extract citation numbers from the response
+    cited_numbers = set(map(int, re.findall(r'\[(\d+)\]', response)))
 
-    output = f"# Query:\n{query}\n\n# Response:\n{response}\n\n# Search Results:\n{links_block}"
+    # Filter search_dic to include only cited links
+    cited_links = [f"{i+1}. {url}" for i, (url, _) in enumerate(search_dic.items()) if (i + 1) in cited_numbers]
+    links_block = "\n".join(cited_links)
+
+    output = f"# Query:\n{query}\n\n# Response:\n{response}\n\n# Sources:\n{links_block}"
     with open(output_md, "w") as file:
         file.write(output)
 
 def main():
     query = get_query() # query user for input
-    search_dic = google_parse_webpages(query, max_links) # search google and scrape website info
-    prompt = build_prompt(query, search_dic) # combine system prompt, user prompt and website info
-    response = llm_openAI(prompt, model) # inference using LLM 
-    save_markdown(query, response, search_dic) # save the result into markdown for visualisation
+    search_dic = google_parse_webpages(query, num_search) # search google and scrape website info
+    print(search_dic.keys())
+    reranked_search_dic = rerank_search_results(query, search_dic, rerank_model, rerank_top_k)
+    print(reranked_search_dic.keys())
+    prompt = build_prompt(query, reranked_search_dic) # combine system prompt, user prompt and website info
+    response = llm_openAI(prompt, llm_model) # inference using LLM 
+    save_markdown(query, response, reranked_search_dic) # save the result into markdown for visualisation
 
 if __name__ == "__main__":
     main()
