@@ -16,7 +16,6 @@ MAX_CONTENT = 400  # Number of words to add to LLM context for each search resul
 RERANK_TOP_K = 5 # Top k ranked search results going into context of LLM
 RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L-12-v2'  # Max tokens = 512 # https://www.sbert.net/docs/pretrained-models/ce-msmarco.html
 LLM_MODEL = 'gpt-4o' # 'gpt-3.5-turbo'
-OUTPUT_MD = 'response.md'
 # -----------------------------------------------------------------------------
 
 # Set up OpenAI API key
@@ -101,7 +100,7 @@ def generate_citation_links(response, search_dic):
     cited_links = [f"{new}. {url}" for new, (url, _) in enumerate(search_dic.items(), 1) if new in cited_numbers]
     return "\n".join(cited_links)
 
-def save_markdown(query, response, search_dic, output_md=OUTPUT_MD):
+def save_markdown(query, response, search_dic):
     """Renumber citations, then save the query, response, and sources to a markdown file."""
     response = renumber_citations(response)
     links_block = generate_citation_links(response, search_dic)
@@ -110,7 +109,8 @@ def save_markdown(query, response, search_dic, output_md=OUTPUT_MD):
         f"# Response:\n{response}\n\n"
         f"# Sources:\n{links_block}"
     )
-    with open(output_md, "w") as file:
+    file_name = f"{query}.md"
+    with open(file_name, "w") as file:
         file.write(output_content)
 
 def main():
