@@ -104,22 +104,24 @@ def llm_openai(prompt, llm_model=LLM_MODEL):
 
 def renumber_citations(response):
     """Renumber citations in the response to be sequential."""
-    citations = sorted(set(map(int, re.findall(r'\[(\d+)\]', response))))
+    citations = sorted(set(map(int, re.findall(r'\[\(?(\d+)\)?\]', response))))
     citation_map = {old: new for new, old in enumerate(citations, 1)}
     for old, new in citation_map.items():
-        response = re.sub(rf'\[{old}\]', f'[{new}]', response)
-    return response
+        response = re.sub(rf'\[\(?{old}\)?\]', f'[{new}]', response)
+    return response, citation_map
 
-def generate_citation_links(response, search_dic):
+def generate_citation_links(citation_map, search_dic):
     """Generate citation links based on the renumbered response."""
-    cited_numbers = set(map(int, re.findall(r'\[(\d+)\]', response)))
-    cited_links = [f"{new}. {url}" for new, (url, _) in enumerate(search_dic.items(), 1) if new in cited_numbers]
+    cited_links = []
+    for old, new in citation_map.items():
+        url = list(search_dic.keys())[old-1]
+        cited_links.append(f"{new}. {url}")
     return "\n".join(cited_links)
 
 def save_markdown(query, response, search_dic):
     """Renumber citations, then save the query, response, and sources to a markdown file."""
-    response = renumber_citations(response)
-    links_block = generate_citation_links(response, search_dic)
+    response, citation_map = renumber_citations(response)
+    links_block = generate_citation_links(citation_map, search_dic)
     output_content = (
         f"# Query:\n{query}\n\n"
         f"# Response:\n{response}\n\n"
