@@ -15,7 +15,7 @@ Please check out [this video(to be uploaded soon)]() for more explanations!
 
 ## Install
 ```
-pip install googlesearch-python requests beautifulsoup4 sentence-transformers openai 
+pip install googlesearch-python requests beautifulsoup4 lxml sentence-transformers openai 
 ```
 
 ## Quick Start

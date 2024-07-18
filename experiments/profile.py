@@ -12,13 +12,13 @@ from openai import OpenAI
 
 # -----------------------------------------------------------------------------
 # Default configuration
-NUM_SEARCH = 20  # Number of links to parse from Google
+NUM_SEARCH = 10  # Number of links to parse from Google
 SEARCH_TIME_LIMIT = 3  # Max seconds to request website sources before skipping to the next URL
 TOTAL_TIMEOUT = 6  # Overall timeout for all operations
-MAX_CONTENT = 500  # Number of words to add to LLM context for each search result
-RERANK_TOP_K = 5 # Top k ranked search results going into context of LLM
+MAX_CONTENT = 400  # Number of words to add to LLM context for each search result
+RERANK_TOP_K = 5  # Top k ranked search results going into context of LLM
 RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L-12-v2'  # Max tokens = 512 # https://www.sbert.net/docs/pretrained-models/ce-msmarco.html
-LLM_MODEL = 'gpt-3.5-turbo' #'gpt-4o'
+LLM_MODEL = 'gpt-3.5-turbo'  # 'gpt-4'  
 # -----------------------------------------------------------------------------
 
 # Set up OpenAI API key
@@ -29,44 +29,66 @@ if OPENAI_API_KEY is None:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def profile_function(func):
+    """Decorator to profile the execution time of a function."""
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function '{func.__name__}' took {end_time - start_time:.2f} seconds to execute.")
+        return result
+    return wrapper
+
+"""
+To profile further
+- pip install line_profiler
+- place @profile decorator above the function you want to profile 
+- run `kernprof -l -v nanoPerplexityAI.py`
+"""
+
 def get_query():
     """Prompt the user to enter a query."""
     return input("Enter your query: ")
 
 def trace_function_factory(start):
-    """Create a trace function to timeout request"""
+    """Create a trace function for individual thread."""
     def trace_function(frame, event, arg):
         if time.time() - start > TOTAL_TIMEOUT:
-            raise TimeoutError('website fetching timed out')
+            raise TimeoutError('Timed out!')
         return trace_function
     return trace_function
 
+@profile_function
 def fetch_webpage(url, timeout):
     """Fetch the content of a webpage given a URL and a timeout."""
     start = time.time()
     sys.settrace(trace_function_factory(start))
+    
     try:
         print(f"Fetching link: {url}")
-        response = requests.get(url, timeout=timeout)
+
+        response = requests.get(url, timeout=(timeout, timeout))
         response.raise_for_status()
+
         soup = BeautifulSoup(response.text, 'lxml')
         paragraphs = soup.find_all('p')
         page_text = ' '.join([para.get_text() for para in paragraphs])
         return url, page_text
     except (requests.exceptions.RequestException, TimeoutError) as e:
         print(f"Error fetching {url}: {e}")
-    finally:
-        sys.settrace(None)
     return url, None
 
+@profile_function
 def google_parse_webpages(query, num_search=NUM_SEARCH, search_time_limit=SEARCH_TIME_LIMIT):
     """Perform a Google search and parse the content of the top results."""
     urls = search(query, num_results=num_search)
     max_workers = os.cpu_count() or 1  # Fallback to 1 if os.cpu_count() returns None
+    print(f'Max workers: {max_workers}')
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_url = {executor.submit(fetch_webpage, url, search_time_limit): url for url in urls}
         return {url: page_text for future in as_completed(future_to_url) if (url := future.result()[0]) and (page_text := future.result()[1])}
 
+@profile_function
 def rerank_search_results(query, search_dic, rerank_model=RERANK_MODEL, rerank_top_k=RERANK_TOP_K):
     """Rerank search results based on relevance to the query using a CrossEncoder model."""
     model = CrossEncoder(rerank_model)
@@ -75,12 +97,13 @@ def rerank_search_results(query, search_dic, rerank_model=RERANK_MODEL, rerank_t
     top_results = sorted(zip(search_dic.keys(), search_dic.values(), scores), key=lambda x: x[2], reverse=True)[:rerank_top_k]
     return {link: content for link, content, _ in top_results}
 
+@profile_function
 def build_prompt(query, search_dic, max_content=MAX_CONTENT):
     """Build the prompt for the language model including the search results context."""
     context_list = [f"[{i+1}]({url}): {content[:max_content]}" for i, (url, content) in enumerate(search_dic.items())]
     context_block = "\n".join(context_list)
     system_message = f"""
-    You are a helpful assistant who is expert at answering user's queries based on the cited context.
+    You are an AI model who is expert at answering user's queries based on the cited context.
 
     Generate a response that is informative and relevant to the user's query based on provided context (the context consists of search results containing a key with [citation number](website link) and brief description of the content of that page).
     You must use this context to answer the user's query in the best way possible. Use an unbiased and journalistic tone in your response. Do not repeat the text.
@@ -94,6 +117,7 @@ def build_prompt(query, search_dic, max_content=MAX_CONTENT):
     """
     return [{"role": "system", "content": system_message}, {"role": "user", "content": query}]
 
+@profile_function
 def llm_openai(prompt, llm_model=LLM_MODEL):
     """Generate a response using the OpenAI language model."""
     response = client.chat.completions.create(
@@ -108,18 +132,22 @@ def renumber_citations(response):
     citation_map = {old: new for new, old in enumerate(citations, 1)}
     for old, new in citation_map.items():
         response = re.sub(rf'\[{old}\]', f'[{new}]', response)
-    return response
+    return response, citation_map
 
-def generate_citation_links(response, search_dic):
+@profile_function
+def generate_citation_links(citation_map, search_dic):
     """Generate citation links based on the renumbered response."""
-    cited_numbers = set(map(int, re.findall(r'\[(\d+)\]', response)))
-    cited_links = [f"{new}. {url}" for new, (url, _) in enumerate(search_dic.items(), 1) if new in cited_numbers]
+    cited_links = []
+    for old, new in citation_map.items():
+        url = list(search_dic.keys())[old-1]
+        cited_links.append(f"{new}. {url}")
     return "\n".join(cited_links)
 
+@profile_function
 def save_markdown(query, response, search_dic):
     """Renumber citations, then save the query, response, and sources to a markdown file."""
-    response = renumber_citations(response)
-    links_block = generate_citation_links(response, search_dic)
+    response, citation_map = renumber_citations(response)
+    links_block = generate_citation_links(citation_map, search_dic)
     output_content = (
         f"# Query:\n{query}\n\n"
         f"# Response:\n{response}\n\n"
@@ -129,6 +157,7 @@ def save_markdown(query, response, search_dic):
     with open(file_name, "w") as file:
         file.write(output_content)
 
+@profile_function
 def main():
     """Main function to execute the search, rerank results, generate response, and save to markdown."""
     query = get_query() 
