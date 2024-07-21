@@ -123,9 +123,9 @@ def save_markdown(query, response, search_dic):
     response, citation_map = renumber_citations(response)
     links_block = generate_citation_links(citation_map, search_dic)
     output_content = (
-        f"# Query:\n{query}\n\n"
-        f"# Response:\n{response}\n\n"
-        f"# Sources:\n{links_block}"
+        f"# {query}\n\n"
+        f"## Sources\n{links_block}\n\n"
+        f"## Answer\n{response}" 
     )
     file_name = f"{query}.md"
     with open(file_name, "w") as file:

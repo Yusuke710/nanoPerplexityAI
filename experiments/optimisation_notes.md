@@ -10,5 +10,5 @@
 
 ## Accuracy Optimization
 
-- Utilize a rerank model. If the text exceeds your memory size, the model runs inference multiple times, which can be time-consuming. Adjust parameters to avoid this.
+- Utilize a rerank model to find most relevant sources to feed into LLM context. If the text exceeds your memory size, the rerank model runs inference multiple times, which can be time-consuming. Adjust parameters to avoid this.
 - Prompt engineering
