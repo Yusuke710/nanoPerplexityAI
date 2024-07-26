@@ -5,10 +5,6 @@ The simplest and most intuitive open-source implementation of an open source [pe
 
 ## Architecture
 
-<a href="https://youtu.be/8zBDTnSYSoc">
-  <img src="https://img.youtube.com/vi/8zBDTnSYSoc/0.jpg" alt="Watch the video" style="width:80%;max-width:330px;">
-</a>
-
 1. Get the user query
 2. Search Google to find relevant webpage URLs and fetch texts (In practice, [PerplexityAI searches its already indexed sources](https://www.perplexity.ai/hub/faq/how-does-perplexity-work))
 3. Build a prompt using `system prompt + webpage context + user query`
