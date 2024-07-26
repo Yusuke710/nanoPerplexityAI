@@ -1,5 +1,4 @@
 ## Speed Optimization
-
 - Use a profiler to identify bottlenecks.
 - Reduce response time:
   - Set a timeout when using `requests.get()`.
@@ -9,6 +8,7 @@
 - Implement parallel processing for website parsing.
 
 ## Accuracy Optimization
-
-- Utilize a rerank model to find most relevant sources to feed into LLM context. If the text exceeds your memory size, the rerank model runs inference multiple times, which can be time-consuming. Adjust parameters to avoid this.
-- Prompt engineering
+- This application heavily relies on the performance of Google Search:
+  - Relevancy of websites to user queries [TF-IDF](https://youtu.be/zLMEnNbdh4Q?si=WBZCkwryzOrkhfkX)
+  - Ranking high quality websites higher in search results [Page Rank](https://youtu.be/JGQe4kiPnrU?si=mJkXOL2o5lDdxGon)
+- Improve prompt engineering to ensure LLM answers are contextually accurate and follow citation formats.

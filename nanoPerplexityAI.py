@@ -7,17 +7,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from googlesearch import search
 import requests
 from bs4 import BeautifulSoup
-from sentence_transformers import CrossEncoder
 from openai import OpenAI
 
 # -----------------------------------------------------------------------------
 # Default configuration
-NUM_SEARCH = 20  # Number of links to parse from Google
+NUM_SEARCH = 10  # Number of links to parse from Google
 SEARCH_TIME_LIMIT = 3  # Max seconds to request website sources before skipping to the next URL
 TOTAL_TIMEOUT = 6  # Overall timeout for all operations
 MAX_CONTENT = 500  # Number of words to add to LLM context for each search result
-RERANK_TOP_K = 5 # Top k ranked search results going into context of LLM
-RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L-12-v2'  # Max tokens = 512 # https://www.sbert.net/docs/pretrained-models/ce-msmarco.html
 LLM_MODEL = 'gpt-3.5-turbo' #'gpt-4o'
 # -----------------------------------------------------------------------------
 
@@ -66,14 +63,6 @@ def google_parse_webpages(query, num_search=NUM_SEARCH, search_time_limit=SEARCH
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_url = {executor.submit(fetch_webpage, url, search_time_limit): url for url in urls}
         return {url: page_text for future in as_completed(future_to_url) if (url := future.result()[0]) and (page_text := future.result()[1])}
-
-def rerank_search_results(query, search_dic, rerank_model=RERANK_MODEL, rerank_top_k=RERANK_TOP_K):
-    """Rerank search results based on relevance to the query using a CrossEncoder model."""
-    model = CrossEncoder(rerank_model)
-    query_context_pairs = [(query, content) for content in search_dic.values()]
-    scores = model.predict(query_context_pairs)
-    top_results = sorted(zip(search_dic.keys(), search_dic.values(), scores), key=lambda x: x[2], reverse=True)[:rerank_top_k]
-    return {link: content for link, content, _ in top_results}
 
 def build_prompt(query, search_dic, max_content=MAX_CONTENT):
     """Build the prompt for the language model including the search results context."""
@@ -135,10 +124,9 @@ def main():
     """Main function to execute the search, rerank results, generate response, and save to markdown."""
     query = get_query() 
     search_dic = google_parse_webpages(query)
-    reranked_search_dic = rerank_search_results(query, search_dic)
-    prompt = build_prompt(query, reranked_search_dic)
+    prompt = build_prompt(query, search_dic)
     response = llm_openai(prompt)
-    save_markdown(query, response, reranked_search_dic)
+    save_markdown(query, response, search_dic)
 
 if __name__ == "__main__":
     main()
