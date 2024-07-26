@@ -1,12 +1,12 @@
 # nanoPerplexityAI
 ![meme](/assets/meme.png)
 
-The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of python code**.
+The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of python code**. Please check out [this video](https://youtu.be/8zBDTnSYSoc) for more explanations!
 
 ## Architecture
 
 <a href="https://youtu.be/8zBDTnSYSoc">
-  <img src="https://img.youtube.com/vi/8zBDTnSYSoc/0.jpg" alt="Watch the video" style="width:80%;max-width:500px;">
+  <img src="https://img.youtube.com/vi/8zBDTnSYSoc/0.jpg" alt="Watch the video" style="width:80%;max-width:330px;">
 </a>
 
 1. Get the user query
