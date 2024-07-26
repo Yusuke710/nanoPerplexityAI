@@ -2,20 +2,22 @@
 ![meme](/assets/meme.png)
 
 The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of python code**.
-Please check out [this video(to be uploaded soon)]() for more explanations!
 
 ## Architecture
 
+<a href="https://youtu.be/8zBDTnSYSoc">
+  <img src="https://img.youtube.com/vi/8zBDTnSYSoc/0.jpg" alt="Watch the video" style="width:80%;max-width:500px;">
+</a>
+
 1. Get the user query
 2. Search Google to find relevant webpage URLs and fetch texts (In practice, [PerplexityAI searches its already indexed sources](https://www.perplexity.ai/hub/faq/how-does-perplexity-work))
-3. Use [rerank model(cross encoder)](https://www.sbert.net/examples/applications/retrieve_rerank/README.html) to find relevance scores for each search results
-4. Build a prompt using `system prompt + webpage context + user query`
-5. Call the LLM API to generate an answer
-6. Format citations and save the LLM answer into a markdown file to visualize it
+3. Build a prompt using `system prompt + webpage context + user query`
+4. Call the LLM API to generate an answer
+5. Format citations and save the LLM answer into a markdown file to visualize it
 
 ## Install
 ```
-pip install googlesearch-python requests beautifulsoup4 lxml sentence-transformers openai 
+pip install googlesearch-python requests beautifulsoup4 lxml openai 
 ```
 
 ## Quick Start
