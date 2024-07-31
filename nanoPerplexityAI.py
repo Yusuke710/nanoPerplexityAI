@@ -15,12 +15,12 @@ NUM_SEARCH = 10  # Number of links to parse from Google
 SEARCH_TIME_LIMIT = 3  # Max seconds to request website sources before skipping to the next URL
 TOTAL_TIMEOUT = 6  # Overall timeout for all operations
 MAX_CONTENT = 500  # Number of words to add to LLM context for each search result
-LLM_MODEL = 'gpt-3.5-turbo' #'gpt-4o'
+LLM_MODEL = 'gpt-4o-mini' #'gpt-3.5-turbo' #'gpt-4o'
+MAX_TOKENS = 1000 # Maximum number of tokens LLM generates
 # -----------------------------------------------------------------------------
 
 # Set up OpenAI API key
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
 if OPENAI_API_KEY is None:
     raise ValueError("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
 
@@ -34,7 +34,7 @@ def trace_function_factory(start):
     """Create a trace function to timeout request"""
     def trace_function(frame, event, arg):
         if time.time() - start > TOTAL_TIMEOUT:
-            raise TimeoutError('website fetching timed out')
+            raise TimeoutError('Website fetching timed out')
         return trace_function
     return trace_function
 
@@ -64,10 +64,31 @@ def google_parse_webpages(query, num_search=NUM_SEARCH, search_time_limit=SEARCH
         future_to_url = {executor.submit(fetch_webpage, url, search_time_limit): url for url in urls}
         return {url: page_text for future in as_completed(future_to_url) if (url := future.result()[0]) and (page_text := future.result()[1])}
 
+def llm_check_search(query):
+    """Check if query requires search and execute Google search."""
+    system_message = """
+    You are a helpful assistant whose primary goal is to decide if a user's query requires a Google search. You should use Google search for most queries to find the most accurate and updated information. Follow these conditions:
+
+    - If the query does not require Google search, you must output "no".
+    - If the query requires Google search, you must respond with a reformulated user query for Google search.
+    """
+    prompt = [{"role": "system", "content": system_message}, {"role": "user", "content": query}]
+    response = llm_openai(prompt, max_tokens=20)
+    if response.lower().strip() != "no":
+        print(f"Performing Google search: {response}")
+        search_dic = google_parse_webpages(response)
+        return search_dic
+    else:
+        print("No Google search required.")
+        return None
+    
 def build_prompt(query, search_dic, max_content=MAX_CONTENT):
     """Build the prompt for the language model including the search results context."""
-    context_list = [f"[{i+1}]({url}): {content[:max_content]}" for i, (url, content) in enumerate(search_dic.items())]
-    context_block = "\n".join(context_list)
+    context_block = ""
+    if search_dic:
+        context_list = [f"[{i+1}]({url}): {content[:max_content]}" for i, (url, content) in enumerate(search_dic.items())]
+        context_block = "\n".join(context_list)
+
     system_message = f"""
     You are a helpful assistant who is expert at answering user's queries based on the cited context.
 
@@ -83,11 +104,12 @@ def build_prompt(query, search_dic, max_content=MAX_CONTENT):
     """
     return [{"role": "system", "content": system_message}, {"role": "user", "content": query}]
 
-def llm_openai(prompt, llm_model=LLM_MODEL):
+def llm_openai(prompt, llm_model=LLM_MODEL, max_tokens=MAX_TOKENS):
     """Generate a response using the OpenAI language model."""
     response = client.chat.completions.create(
         model=llm_model,
-        messages=prompt
+        messages=prompt,
+        max_tokens=max_tokens
     )
     return response.choices[0].message.content
 
@@ -101,29 +123,22 @@ def renumber_citations(response):
 
 def generate_citation_links(citation_map, search_dic):
     """Generate citation links based on the renumbered response."""
-    cited_links = []
-    for old, new in citation_map.items():
-        url = list(search_dic.keys())[old-1]
-        cited_links.append(f"{new}. {url}")
+    cited_links = [f"{new}. {list(search_dic.keys())[old-1]}" for old, new in citation_map.items()]
     return "\n".join(cited_links)
 
 def save_markdown(query, response, search_dic):
     """Renumber citations, then save the query, response, and sources to a markdown file."""
     response, citation_map = renumber_citations(response)
-    links_block = generate_citation_links(citation_map, search_dic)
-    output_content = (
-        f"# {query}\n\n"
-        f"## Sources\n{links_block}\n\n"
-        f"## Answer\n{response}" 
-    )
-    file_name = f"{query}.md"
-    with open(file_name, "w") as file:
+    links_block = generate_citation_links(citation_map, search_dic) if citation_map else ""
+    output_content = f"# {query}\n\n## Sources\n{links_block}\n\n## Answer\n{response}" if citation_map else f"# {query}\n\n## Answer\n{response}"
+
+    with open(f"{query}.md", "w") as file:
         file.write(output_content)
 
 def main():
-    """Main function to execute the search, rerank results, generate response, and save to markdown."""
-    query = get_query() 
-    search_dic = google_parse_webpages(query)
+    """Main function to execute the search, generate response, and save to markdown."""
+    query = get_query()
+    search_dic = llm_check_search(query)
     prompt = build_prompt(query, search_dic)
     response = llm_openai(prompt)
     save_markdown(query, response, search_dic)
