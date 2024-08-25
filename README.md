@@ -1,7 +1,7 @@
 # nanoPerplexityAI
-![meme](/assets/meme.png)
+![meme](/assets/PerplexityAI.png)
 
-The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. No fancy GUI or LLM agents are involved, just **100 lines of python code** (slightly more with updated code 🙇). Please check out [this video](https://youtu.be/8zBDTnSYSoc) for more explanations!
+The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. **No fancy GUI or LLM agents** are involved, just **200 lines of python code**. Please check out [this video](https://youtu.be/8zBDTnSYSoc) for more explanations!
 
 ## Architecture
 
