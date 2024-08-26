@@ -13,7 +13,7 @@ The simplest and most intuitive open-source implementation of an open source [pe
 
 ## Install
 ```
-pip install googlesearch-python requests beautifulsoup4 lxml openai 
+pip install googlesearch-python requests beautifulsoup4 lxml backoff openai 
 ```
 
 ## Quick Start

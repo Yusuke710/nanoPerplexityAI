@@ -7,7 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from googlesearch import search
 import requests
 from bs4 import BeautifulSoup
-from openai import OpenAI
+import backoff
+import openai
 
 # -----------------------------------------------------------------------------
 # Default configuration
@@ -55,7 +56,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise ValueError("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client =openai.OpenAI(api_key=OPENAI_API_KEY)
 
 def get_query():
     """Prompt the user to enter a query."""
@@ -87,7 +88,7 @@ def fetch_webpage(url, timeout):
         sys.settrace(None)
     return url, None
 
-def google_parse_webpages(query, num_search=NUM_SEARCH, search_time_limit=SEARCH_TIME_LIMIT):
+def parse_google_results(query, num_search=NUM_SEARCH, search_time_limit=SEARCH_TIME_LIMIT):
     """Perform a Google search and parse the content of the top results."""
     urls = search(query, num_results=num_search)
     max_workers = os.cpu_count() or 1  # Fallback to 1 if os.cpu_count() returns None
@@ -95,6 +96,7 @@ def google_parse_webpages(query, num_search=NUM_SEARCH, search_time_limit=SEARCH
         future_to_url = {executor.submit(fetch_webpage, url, search_time_limit): url for url in urls}
         return {url: page_text for future in as_completed(future_to_url) if (url := future.result()[0]) and (page_text := future.result()[1])}
 
+@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APITimeoutError))
 def llm_check_search(query, msg_history=None, llm_model=LLM_MODEL):
     """Check if query requires search and execute Google search."""
     prompt = search_prompt.format(query=query)
@@ -113,9 +115,10 @@ def llm_check_search(query, msg_history=None, llm_model=LLM_MODEL):
         return None
     else:
         print(f"Performing Google search: {cleaned_response}")
-        search_dic = google_parse_webpages(cleaned_response)
+        search_dic = parse_google_results(cleaned_response)
         return search_dic
 
+@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APITimeoutError))
 def llm_answer(query, msg_history=None, search_dic=None, llm_model=LLM_MODEL, max_content=MAX_CONTENT, max_tokens=MAX_TOKENS):
     """Build the prompt for the language model including the search results context."""
     if search_dic:
