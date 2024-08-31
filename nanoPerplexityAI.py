@@ -116,14 +116,13 @@ def llm_check_search(query, file_path, msg_history=None, llm_model=LLM_MODEL):
     cleaned_response = response.lower().strip()
     if re.fullmatch(r"\bns\b", cleaned_response):
         print("No Google search required.")
-        save_markdown(f"# {query}\n\n## Answer\n", file_path)
         return None
     else:
         print(f"Performing Google search: {cleaned_response}")
         search_dic = parse_google_results(cleaned_response)
         # Format search result in dic into markdown format
         search_result_md = "\n".join([f"{number+1}. {link}" for number, link in enumerate(search_dic.keys())])
-        save_markdown(f"# {query}\n\n## Sources\n{search_result_md}\n\n## Answer\n", file_path)
+        save_markdown(f"## Sources\n{search_result_md}\n\n", file_path)
         return search_dic
 
 @backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APITimeoutError))
@@ -148,6 +147,7 @@ def llm_answer(query, file_path, msg_history=None, search_dic=None, llm_model=LL
     )
 
     print("\n" + "*" * 20 + " LLM START " + "*" * 20)
+    save_markdown(f"## Answer\n", file_path)
     content = []
     for chunk in response:
         chunk_content = chunk.choices[0].delta.content
@@ -168,7 +168,6 @@ def main():
     msg_history = None
     file_path = "playground.md"
     save_path = None
-
     # start with an empty file
     with open(file_path, 'w') as file:
         pass
@@ -184,14 +183,15 @@ def main():
                 shutil.copy(file_path, save_path)
                 print(f"AI response saved into {save_path}")
                 # reset the saving mechanism
+                save_path = None 
                 with open(file_path, 'w') as file:
                     pass
-                save_path = None 
             else:
                 print("No content is saved")
                 continue
         # LLM answers
         else:
+            save_markdown(f"# {query}\n\n", file_path)
             search_dic = llm_check_search(query, file_path, msg_history)
             msg_history = llm_answer(query, file_path, msg_history, search_dic)
             save_path = save_path or f"{query}.md" # ensure saved file has the first query as its name 

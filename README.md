@@ -1,7 +1,10 @@
 # nanoPerplexityAI
-![meme](/assets/PerplexityAI.png)
 
 The simplest and most intuitive open-source implementation of an open source [perplexity.ai](https://www.perplexity.ai/), a large language model(LLM) service which cites information from Google. **No fancy GUI or LLM agents** are involved, just **200 lines of python code**. Please check out [this video](https://youtu.be/8zBDTnSYSoc) for more explanations!
+
+Check out the [conversations](/example_outputs/) nanoPerplexityAI has generated 
+
+![overview](/assets/example_response.png)
 
 ## Architecture
 
@@ -9,7 +12,9 @@ The simplest and most intuitive open-source implementation of an open source [pe
 2. LLM checks the user query, decides whether to execute a Google search, and if searching, reformulates the user query into a Google-suited query to find relevant webpage URLs and fetch texts. (In practice, [PerplexityAI searches its already indexed sources](https://www.perplexity.ai/hub/faq/how-does-perplexity-work))
 3. Build a prompt using `system prompt + webpage context + user query`
 4. Call the LLM API to generate an answer
-5. Format citations and save the LLM answer into a markdown file for visualization
+5. As LLM perform stream completion, save the LLM response into a markdown file for better visualization. 
+
+#PerplexityAI does not reformat the search results and therefore not all search results are used and cited in the LLM response. This is because they prioritize displaying search results quickly and streaming LLM completion for a better user experience.
 
 ## Install
 ```
@@ -22,17 +27,17 @@ export OPENAI_API_KEY=<Your OpenAI API KEY>
 python nanoPerplexityAI.py
 ```
 
-The script will prompt you to type your question, then it will generate an answer in `<query>.md`
+The script will prompt you to type your question, then it will generate an answer in `playground.md`
+You can type a key s for [s]ave and q for [q]uit
 
-## View the Answers from nanoPerplexityAI:
-There are several ways to visualize the answers easily:
-- Open in your editor, e.g., VScode
-- Open in [Markdown Playground](https://dotmd-editor.vercel.app/)
-- Push them to your github repo
+## View Real Time Generation
+You can utilise Visual Studio Code to replicate the simpler version of PerplexityAI GUI. Open Preview of `playground.md` as you run `python nanoPerplexityAI.py` and you will see the real time generation!
 
-Check out the [answers](/example_outputs/) nanoPerplexityAI has already generated 
+### DEMO
 
-![answers](/assets/example_response.png)
+![Gid](/assets/demo.gif)
+
+Other ways involve opening in [Markdown Playground](https://dotmd-editor.vercel.app/) or pushing the output markdown files to your github repo for displaying markdown
 
 
 ## Acknowledgements
